@@ -75,7 +75,7 @@ class FullThreats {
     };
 
     // Maximum number of simultaneously active features.
-    static constexpr IndexType MaxActiveDimensions = 128;
+    static constexpr IndexType MaxActiveDimensions = 1024;
     using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
     using DiffType                                 = DirtyThreats;
 

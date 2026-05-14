@@ -36,6 +36,22 @@
 #include "nnue_common.h"
 #include "nnue_misc.h"
 
+namespace {
+
+Stockfish::Eval::NNUE::IndexType output_bucket(const Stockfish::Position& pos) {
+    int bucket = (pos.count<Stockfish::ALL_PIECES>() - 1) / 4;
+
+    if (bucket < 0)
+        return 0;
+
+    if (bucket >= int(Stockfish::Eval::NNUE::LayerStacks))
+        return Stockfish::Eval::NNUE::LayerStacks - 1;
+
+    return Stockfish::Eval::NNUE::IndexType(bucket);
+}
+
+}  // namespace
+
 // Macro to embed the default efficiently updatable neural network (NNUE) file
 // data in the engine binary (using incbin.h, by Dale Weiler).
 // This macro invocation will declare the following three variables
@@ -154,7 +170,7 @@ NetworkOutput Network::evaluate(const Position&    pos,
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int  bucket = (pos.count<ALL_PIECES>() - 1) / 4;
+    const auto bucket = output_bucket(pos);
     const auto psqt =
       featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, bucket);
     const auto positional = network[bucket].propagate(transformedFeatures);
@@ -213,7 +229,7 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
     NnueEvalTrace t{};
-    t.correctBucket = (pos.count<ALL_PIECES>() - 1) / 4;
+    t.correctBucket = output_bucket(pos);
     for (IndexType bucket = 0; bucket < LayerStacks; ++bucket)
     {
         const auto materialist =

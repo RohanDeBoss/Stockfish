@@ -58,6 +58,17 @@ constexpr std::string_view PieceToChar(" PNBRQK  pnbrqk");
 
 static constexpr Piece Pieces[] = {W_PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
                                    B_PAWN, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING};
+
+Key material_count_key(Piece pc, int cnt) {
+    assert(cnt >= 0);
+
+    constexpr int NormalMaterialSlots = SQUARE_NB - 8;
+
+    if (cnt < NormalMaterialSlots)
+        return Zobrist::psq[pc][8 + cnt];
+
+    return make_key(0x9E3779B97F4A7C15ULL ^ (uint64_t(pc) << 32) ^ uint64_t(cnt));
+}
 }  // namespace
 
 
@@ -202,8 +213,13 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
 
     unsigned char      col, row, token;
     size_t             idx;
-    Square             sq = SQ_A8;
     std::istringstream ss(fenStr);
+
+    auto use_start_fen = [&](std::string_view reason) -> Position& {
+        sync_cout << "info string Invalid custom FEN: " << reason
+                  << " Falling back to the standard start position." << sync_endl;
+        return set(StartFEN, isChess960, si);
+    };
 
     std::memset(reinterpret_cast<char*>(this), 0, sizeof(Position));
     std::memset(si, 0, sizeof(StateInfo));
@@ -212,25 +228,56 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
     ss >> std::noskipws;
 
     // 1. Piece placement
+    int file = FILE_A;
+    int rank = RANK_8;
+
     while ((ss >> token) && !isspace(token))
     {
-        if (isdigit(token))
-            sq += (token - '0') * EAST;  // Advance the given number of files
+        if (token >= '1' && token <= '8')
+        {
+            file += token - '0';  // Advance the given number of files
 
+            if (file > FILE_NB)
+                return use_start_fen("Board rank has more than 8 files.");
+        }
         else if (token == '/')
-            sq += 2 * SOUTH;
+        {
+            if (file != FILE_NB || rank == RANK_1)
+                return use_start_fen("Invalid board rank separator.");
+
+            file = FILE_A;
+            --rank;
+        }
 
         else if ((idx = PieceToChar.find(token)) != string::npos)
         {
-            put_piece(Piece(idx), sq);
-            ++sq;
+            if (file >= FILE_NB)
+                return use_start_fen("Board rank has more than 8 files.");
+
+            put_piece(Piece(idx), make_square(File(file), Rank(rank)));
+            ++file;
         }
+        else
+            return use_start_fen("Unknown piece character in board state.");
     }
 
+    if (rank != RANK_1 || file != FILE_NB)
+        return use_start_fen("Board state does not describe exactly 64 squares.");
+
+    if (count<KING>(WHITE) != 1 || count<KING>(BLACK) != 1)
+        return use_start_fen("Position must have exactly one white king and one black king.");
+
+    if (pieces(PAWN) & (Rank1BB | Rank8BB))
+        return use_start_fen("Pawns are only supported on ranks 2 through 7.");
+
     // 2. Active color
-    ss >> token;
+    if (!(ss >> token) || (token != 'w' && token != 'b'))
+        return use_start_fen("Expected side to move to be 'w' or 'b'.");
+
     sideToMove = (token == 'w' ? WHITE : BLACK);
-    ss >> token;
+
+    if (!(ss >> token) || !isspace(token))
+        return use_start_fen("Expected whitespace after side to move.");
 
     // 3. Castling availability. Compatible with 3 standards: Normal FEN standard,
     // Shredder-FEN that uses the letters of the columns on which the rooks began
@@ -239,27 +286,50 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
     // replaced by the file letter of the involved rook, as for the Shredder-FEN.
     while ((ss >> token) && !isspace(token))
     {
-        Square rsq;
+        Square rsq = SQ_NONE;
         Color  c    = islower(token) ? BLACK : WHITE;
         Piece  rook = make_piece(c, ROOK);
 
         token = char(toupper(token));
 
         if (token == 'K')
-            for (rsq = relative_square(c, SQ_H1); piece_on(rsq) != rook; --rsq)
-            {}
+        {
+            for (int f = FILE_H; f >= FILE_A; --f)
+            {
+                Square s = make_square(File(f), relative_rank(c, RANK_1));
+                if (piece_on(s) == rook)
+                {
+                    rsq = s;
+                    break;
+                }
+            }
+        }
 
         else if (token == 'Q')
-            for (rsq = relative_square(c, SQ_A1); piece_on(rsq) != rook; ++rsq)
-            {}
+        {
+            for (int f = FILE_A; f <= FILE_H; ++f)
+            {
+                Square s = make_square(File(f), relative_rank(c, RANK_1));
+                if (piece_on(s) == rook)
+                {
+                    rsq = s;
+                    break;
+                }
+            }
+        }
 
         else if (token >= 'A' && token <= 'H')
-            rsq = make_square(File(token - 'A'), relative_rank(c, RANK_1));
+        {
+            Square s = make_square(File(token - 'A'), relative_rank(c, RANK_1));
+            if (piece_on(s) == rook)
+                rsq = s;
+        }
 
         else
             continue;
 
-        set_castling_right(c, rsq);
+        if (rsq != SQ_NONE)
+            set_castling_right(c, rsq);
     }
 
     // 4. En passant square.
@@ -297,6 +367,9 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
     // Convert from fullmove starting from 1 to gamePly starting from 0,
     // handle also common incorrect FEN with fullmove = 0.
     gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
+
+    if (attackers_to_exist(square<KING>(~sideToMove), pieces(), sideToMove))
+        return use_start_fen("Side to move may not already attack the enemy king.");
 
     chess960 = isChess960;
     set_state();
@@ -394,7 +467,7 @@ Key Position::compute_material_key() const {
     Key k = 0;
     for (Piece pc : Pieces)
         for (int cnt = 0; cnt < pieceCount[pc]; ++cnt)
-            k ^= Zobrist::psq[pc][8 + cnt];
+            k ^= material_count_key(pc, cnt);
     return k;
 }
 
@@ -779,7 +852,7 @@ void Position::do_move(Move                      m,
 
         k ^= Zobrist::psq[captured][capsq];
         st->materialKey ^=
-          Zobrist::psq[captured][8 + pieceCount[captured] - (m.type_of() != EN_PASSANT)];
+          material_count_key(captured, pieceCount[captured] - (m.type_of() != EN_PASSANT));
 
         // Reset rule 50 counter
         st->rule50 = 0;
@@ -866,8 +939,8 @@ void Position::do_move(Move                      m,
             // Update hash keys
             // Zobrist::psq[pc][to] is zero, so we don't need to clear it
             k ^= Zobrist::psq[promotion][to];
-            st->materialKey ^= Zobrist::psq[promotion][8 + pieceCount[promotion] - 1]
-                             ^ Zobrist::psq[pc][8 + pieceCount[pc]];
+            st->materialKey ^= material_count_key(promotion, pieceCount[promotion] - 1)
+                             ^ material_count_key(pc, pieceCount[pc]);
             st->nonPawnKey[us] ^= Zobrist::psq[promotion][to];
 
             if (pt <= BISHOP)
@@ -1495,7 +1568,7 @@ bool Position::pos_is_ok() const {
         || attackers_to_exist(square<KING>(~sideToMove), pieces(), sideToMove))
         assert(0 && "pos_is_ok: Kings");
 
-    if ((pieces(PAWN) & (Rank1BB | Rank8BB)) || pieceCount[W_PAWN] > 8 || pieceCount[B_PAWN] > 8)
+    if (pieces(PAWN) & (Rank1BB | Rank8BB))
         assert(0 && "pos_is_ok: Pawns");
 
 
@@ -1515,8 +1588,7 @@ bool Position::pos_is_ok() const {
             assert(0 && "pos_is_ok: En passant square");
     }
 
-    if ((pieces(WHITE) & pieces(BLACK)) || (pieces(WHITE) | pieces(BLACK)) != pieces()
-        || popcount(pieces(WHITE)) > 16 || popcount(pieces(BLACK)) > 16)
+    if ((pieces(WHITE) & pieces(BLACK)) || (pieces(WHITE) | pieces(BLACK)) != pieces())
         assert(0 && "pos_is_ok: Bitboards");
 
     for (PieceType p1 = PAWN; p1 <= KING; ++p1)
