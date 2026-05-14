@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -55,8 +56,10 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     optimism += optimism * nnueComplexity / 476;
     nnue -= nnue * nnueComplexity / 18236;
 
-    int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
-    int v        = (nnue * (77871 + material) + optimism * (7191 + material)) / 77871;
+    int     material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
+    int64_t scaled   = int64_t(nnue) * (77871 + material)
+                   + int64_t(optimism) * (7191 + material);
+    int v = int(scaled / 77871);
 
     // Damp down the evaluation linearly when shuffling
     v -= v * pos.rule50_count() / 199;

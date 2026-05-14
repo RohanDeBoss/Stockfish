@@ -1102,13 +1102,32 @@ void write_multiple_dirties(const Position& p,
 
     const __m512i board    = _mm512_loadu_si512(p.piece_array().data());
     const int     dt_count = popcount(mask);
-    assert(dt_count <= 16);
+
+    if (!dt_count)
+        return;
+
+    if (dt_count > 16)
+    {
+        while (mask)
+        {
+            Square sq = pop_lsb(mask);
+            Piece  pc = p.piece_on(sq);
+
+            if constexpr (SqShift == DirtyThreat::ThreatenedSqOffset)
+                add_dirty_threat(dts, dt_template.add(), dt_template.pc(), pc,
+                                 dt_template.pc_sq(), sq);
+            else
+                add_dirty_threat(dts, dt_template.add(), pc, dt_template.threatened_pc(), sq,
+                                 dt_template.threatened_sq());
+        }
+
+        return;
+    }
 
     const __m512i template_v = _mm512_set1_epi32(dt_template.raw());
     auto*         write      = dts->list.make_space(dt_count);
 
-    // Extract the list of squares and upconvert to 32 bits. There are never more than 16
-    // incoming threats so this is sufficient.
+    // Extract up to 16 squares and upconvert them to 32 bits for the SIMD path.
     __m512i threat_squares = _mm512_maskz_compress_epi8(mask, AllSquares);
     threat_squares         = _mm512_cvtepi8_epi32(_mm512_castsi512_si128(threat_squares));
 
@@ -1121,7 +1140,7 @@ void write_multiple_dirties(const Position& p,
 
     const __m512i dirties =
       _mm512_ternarylogic_epi32(template_v, threat_squares, threat_pieces, 254 /* A | B | C */);
-    _mm512_storeu_si512(write, dirties);
+    _mm512_mask_storeu_epi32(write, static_cast<__mmask16>((1U << dt_count) - 1), dirties);
 }
 #endif
 
