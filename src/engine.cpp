@@ -188,26 +188,21 @@ void Engine::set_on_verify_network(std::function<void(std::string_view)>&& f) {
 
 void Engine::wait_for_search_finished() { threads.main_thread()->wait_for_search_finished(); }
 
-std::optional<PositionSetError> Engine::set_position(const std::string&              fen,
-                                                     const std::vector<std::string>& moves) {
+void Engine::set_position(const std::string& fen, const std::vector<std::string>& moves) {
     // Drop the old state and create a new one
-    states   = StateListPtr(new std::deque<StateInfo>(1));
-    auto err = pos.set(fen, options["UCI_Chess960"], &states->back());
-    if (err.has_value())
-        return err;
+    states = StateListPtr(new std::deque<StateInfo>(1));
+    pos.set(fen, options["UCI_Chess960"], &states->back());
 
     for (const auto& move : moves)
     {
         auto m = UCIEngine::to_move(pos, move);
 
         if (m == Move::none())
-            return PositionSetError("Illegal move: " + move);
+            break;
 
         states->emplace_back();
         pos.do_move(m, states->back());
     }
-
-    return std::nullopt;
 }
 
 // modifiers

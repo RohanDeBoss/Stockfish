@@ -68,8 +68,7 @@ class Engine {
     // blocking call to wait for search to finish
     void wait_for_search_finished();
     // set a new position, moves are in UCI format
-    std::optional<PositionSetError> set_position(const std::string&              fen,
-                                                 const std::vector<std::string>& moves);
+    void set_position(const std::string& fen, const std::vector<std::string>& moves);
 
     // modifiers
 
