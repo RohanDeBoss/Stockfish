@@ -336,6 +336,7 @@ struct DirtyThreats {
     DirtyThreatList list;
     Color           us;
     Square          prevKsq, ksq;
+    bool            overflowed = false;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \

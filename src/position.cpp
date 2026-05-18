@@ -1087,6 +1087,11 @@ inline void add_dirty_threat(DirtyThreats* const dts,
                              Piece               threatened,
                              Square              s,
                              Square              threatenedSq) {
+    if (dts->list.size() >= dts->list.capacity())
+    {
+        dts->overflowed = true;
+        return;
+    }
     dts->list.push_back({pc, threatened, s, threatenedSq, putPiece});
 }
 

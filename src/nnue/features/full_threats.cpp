@@ -333,6 +333,8 @@ void FullThreats::append_changed_indices(Color                   perspective,
 }
 
 bool FullThreats::requires_refresh(const DiffType& diff, Color perspective) {
+    if (diff.overflowed)
+        return true;
     return perspective == diff.us && (int8_t(diff.ksq) & 0b100) != (int8_t(diff.prevKsq) & 0b100);
 }
 
