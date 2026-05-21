@@ -368,13 +368,13 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
     // handle also common incorrect FEN with fullmove = 0.
     gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
 
-    if (attackers_to_exist(square<KING>(~sideToMove), pieces(), sideToMove))
+    if (validate && attackers_to_exist(square<KING>(~sideToMove), pieces(), sideToMove))
         return use_start_fen("Side to move may not already attack the enemy king.");
 
     chess960 = isChess960;
     set_state();
 
-    assert(pos_is_ok());
+    if (validate) assert(pos_is_ok());
 
     return *this;
 }
@@ -489,7 +489,7 @@ Position& Position::set(const string& code, Color c, StateInfo* si) {
     string fenStr = "8/" + sides[0] + char(8 - sides[0].length() + '0') + "/8/8/8/8/" + sides[1]
                   + char(8 - sides[1].length() + '0') + "/8 w - - 0 10";
 
-    return set(fenStr, false, si);
+    return set(fenStr, false, si, false);
 }
 
 
