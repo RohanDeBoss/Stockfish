@@ -175,7 +175,7 @@ void Position::init() {
 // Initializes the position object with the given FEN string.
 // This function is not very robust - make sure that input FENs are correct,
 // this is assumed to be the responsibility of the GUI.
-Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
+Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si, bool validate) {
     /*
    A FEN string defines a particular position using only the ASCII character set.
 
@@ -289,12 +289,16 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
         Square rsq = SQ_NONE;
         Color  c    = islower(token) ? BLACK : WHITE;
         Piece  rook = make_piece(c, ROOK);
+        Square ksq  = square<KING>(c);
+
+        if (rank_of(ksq) != relative_rank(c, RANK_1))
+            continue;
 
         token = char(toupper(token));
 
         if (token == 'K')
         {
-            for (int f = FILE_H; f >= FILE_A; --f)
+            for (int f = FILE_H; f > file_of(ksq); --f)
             {
                 Square s = make_square(File(f), relative_rank(c, RANK_1));
                 if (piece_on(s) == rook)
@@ -307,7 +311,7 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
 
         else if (token == 'Q')
         {
-            for (int f = FILE_A; f <= FILE_H; ++f)
+            for (int f = FILE_A; f < file_of(ksq); ++f)
             {
                 Square s = make_square(File(f), relative_rank(c, RANK_1));
                 if (piece_on(s) == rook)
@@ -1129,6 +1133,11 @@ void write_multiple_dirties(const Position& p,
         return;
     }
 
+    if (dts->list.size() + static_cast<std::size_t>(dt_count) > dts->list.capacity())
+    {
+        dts->overflowed = true;
+        return;
+    }
     const __m512i template_v = _mm512_set1_epi32(dt_template.raw());
     auto*         write      = dts->list.make_space(dt_count);
 
