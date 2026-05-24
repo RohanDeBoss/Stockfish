@@ -1139,6 +1139,13 @@ void write_multiple_dirties(const Position& p,
         return;
     }
     const __m512i template_v = _mm512_set1_epi32(dt_template.raw());
+
+    if (dts->list.size() + dt_count > dts->list.capacity())
+    {
+        dts->overflowed = true;
+        return;
+    }
+
     auto*         write      = dts->list.make_space(dt_count);
 
     // Extract up to 16 squares and upconvert them to 32 bits for the SIMD path.
