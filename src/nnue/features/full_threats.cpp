@@ -229,8 +229,7 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos, 
                     Piece  attacked = pos.piece_on(to);
                     assert(file_of(from) != file_of(to) || type_of(attacked) == PAWN);
                     IndexType index = make_index(perspective, attacker, from, to, attacked, ksq);
-                    if (index < Dimensions)
-                        active.push_back(index);
+                    active.push_back_if_lt(index, Dimensions);
                 }
             };
 
@@ -261,8 +260,7 @@ void FullThreats::append_active_indices(Color perspective, const Position& pos, 
                     Square    to       = pop_lsb(attacks);
                     Piece     attacked = pos.piece_on(to);
                     IndexType index    = make_index(perspective, attacker, from, to, attacked, ksq);
-                    if (index < Dimensions)
-                        active.push_back(index);
+                    active.push_back_if_lt(index, Dimensions);
                 }
             }
         }
@@ -322,13 +320,10 @@ void FullThreats::append_changed_indices(Color                   perspective,
         auto&           insert = add ? added : removed;
         const IndexType index  = make_index(perspective, attacker, from, to, attacked, ksq);
 
-        if (index >= Dimensions)
-            continue;
-
         if (prefetchBase)
             prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(
               reinterpret_cast<uintptr_t>(prefetchBase) + index * prefetchStride));
-        insert.push_back(index);
+        insert.push_back_if_lt(index, Dimensions);
     }
 }
 

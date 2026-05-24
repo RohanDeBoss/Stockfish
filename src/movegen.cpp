@@ -61,8 +61,7 @@ inline Move* splat_pawn_moves(Move* moveList, Bitboard to_bb) {
 }
 
 inline Move* splat_moves(Move* moveList, Square from, Bitboard to_bb) {
-    const int moveCount = popcount(to_bb);
-    assert(moveCount <= 32);  // Q can attack up to 27 squares
+    assert(popcount(to_bb) <= 32);  // Q can attack up to 27 squares
 
     const __m512i fromVec = _mm512_set1_epi16(Move(from, SQUARE_ZERO).raw());
     const __m512i toSquares =
@@ -70,7 +69,7 @@ inline Move* splat_moves(Move* moveList, Square from, Bitboard to_bb) {
     const __m512i moves = _mm512_or_si512(fromVec, _mm512_slli_epi16(toSquares, Move::ToSqShift));
 
     _mm512_storeu_si512(moveList, moves);
-    return moveList + moveCount;
+    return moveList + popcount(to_bb);
 }
 
 // Rook/bishop, indexed by (Pt - BISHOP) and from sq
