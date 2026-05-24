@@ -1739,35 +1739,18 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // in check and no legal moves were found, it is checkmate.
     if (!moveCount)
     {
-        if (ss->inCheck)
+        if (ss->inCheck)  // Checkmate!
         {
             assert(!MoveList<LEGAL>(pos).size());
-            return mated_in(ss->ply);
+            return mated_in(ss->ply);  // Plies to mate from the root
         }
 
+        // Only check for stalemate under specific conditions
         Color us = pos.side_to_move();
-
-        // Fast filter 1: a single bitboard op. If any pawn can push,
-        // stalemate is impossible regardless of piece count.
-        if (!(pawn_single_push_bb(us, pos.pieces(us, PAWN)) & ~pos.pieces()))
-        {
-            // Fast filter 2: at most 8 attackers_to_exist probes.
-            // If the king has any safe escape, stalemate is impossible.
-            Square   ksq      = pos.square<KING>(us);
-            Bitboard occ      = pos.pieces();
-            bool     kingFree = false;
-            Bitboard km       = attacks_bb<KING>(ksq) & ~pos.pieces(us);
-
-            while (km && !kingFree)
-                if (!pos.attackers_to_exist(pop_lsb(km), occ ^ ksq, ~us))
-                    kingFree = true;
-
-            // Only pay for full legal move generation when both
-            // pawns and king are genuinely stuck — now correctly
-            // handles custom positions with pieces present too.
-            if (!kingFree && !MoveList<LEGAL>(pos).size())
-                bestValue = VALUE_DRAW;
-        }
+        if (!(pawn_single_push_bb(us, pos.pieces(us, PAWN)) & ~pos.pieces())
+            && !pos.non_pawn_material(us) && type_of(pos.captured_piece()) >= KNIGHT
+            && !MoveList<LEGAL>(pos).size())
+            bestValue = VALUE_DRAW;
     }
 
     if (!is_decisive(bestValue) && bestValue > beta)
