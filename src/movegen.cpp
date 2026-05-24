@@ -56,7 +56,7 @@ inline Move* splat_pawn_moves(Move* moveList, Bitboard to_bb) {
     const __m128i moves       = _mm_or_si128(_mm_slli_epi16(fromSquares, Move::FromSqShift),
                                              _mm_slli_epi16(toSquares, Move::ToSqShift));
 
-    _mm_mask_storeu_epi16(moveList, static_cast<__mmask8>((1U << moveCount) - 1), moves);
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(moveList), moves);
     return moveList + moveCount;
 }
 
@@ -69,8 +69,7 @@ inline Move* splat_moves(Move* moveList, Square from, Bitboard to_bb) {
       _mm512_cvtepi8_epi16(_mm512_castsi512_si256(_mm512_maskz_compress_epi8(to_bb, AllSquares)));
     const __m512i moves = _mm512_or_si512(fromVec, _mm512_slli_epi16(toSquares, Move::ToSqShift));
 
-    _mm512_mask_storeu_epi16(moveList, static_cast<__mmask32>((uint64_t(1) << moveCount) - 1),
-                             moves);
+    _mm512_storeu_si512(moveList, moves);
     return moveList + moveCount;
 }
 

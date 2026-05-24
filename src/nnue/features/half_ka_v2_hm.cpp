@@ -95,23 +95,14 @@ void HalfKAv2_hm::write_indices(const std::array<Piece, SQUARE_NB>& oldPieces,
       _mm512_or_si512(_mm512_xor_si512(added_squares, orient),
                       _mm512_permutexvar_epi16(added_pieces, psi_plus_bucket));
 
-    auto store_indices = [](IndexType* out, int count, __m512i indices) {
-        const int loCount = std::min(count, 16);
-        const int hiCount = std::max(count - 16, 0);
+    _mm512_storeu_si512(write_removed,
+                        _mm512_cvtepu16_epi32(_mm512_castsi512_si256(removed_indices)));
+    _mm512_storeu_si512(write_removed + 16,
+                        _mm512_cvtepu16_epi32(_mm512_extracti64x4_epi64(removed_indices, 1)));
 
-        if (loCount)
-            _mm512_mask_storeu_epi32(
-              out, static_cast<__mmask16>((1U << loCount) - 1),
-              _mm512_cvtepu16_epi32(_mm512_castsi512_si256(indices)));
-
-        if (hiCount)
-            _mm512_mask_storeu_epi32(
-              out + 16, static_cast<__mmask16>((1U << hiCount) - 1),
-              _mm512_cvtepu16_epi32(_mm512_extracti64x4_epi64(indices, 1)));
-    };
-
-    store_indices(write_removed, removedCount, removed_indices);
-    store_indices(write_added, addedCount, added_indices);
+    _mm512_storeu_si512(write_added, _mm512_cvtepu16_epi32(_mm512_castsi512_si256(added_indices)));
+    _mm512_storeu_si512(write_added + 16,
+                        _mm512_cvtepu16_epi32(_mm512_extracti64x4_epi64(added_indices, 1)));
 }
 #endif
 
