@@ -191,7 +191,11 @@ void Engine::wait_for_search_finished() { threads.main_thread()->wait_for_search
 void Engine::set_position(const std::string& fen, const std::vector<std::string>& moves) {
     // Drop the old state and create a new one
     states = StateListPtr(new std::deque<StateInfo>(1));
-    pos.set(fen, options["UCI_Chess960"], &states->back());
+    bool validFen = true;
+    pos.set(fen, options["UCI_Chess960"], &states->back(), true, &validFen);
+
+    if (!validFen)
+        return;
 
     for (const auto& move : moves)
     {

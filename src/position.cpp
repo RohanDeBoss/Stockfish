@@ -175,7 +175,8 @@ void Position::init() {
 // Initializes the position object with the given FEN string.
 // This function is not very robust - make sure that input FENs are correct,
 // this is assumed to be the responsibility of the GUI.
-Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si, bool validate) {
+Position& Position::set(
+  const string& fenStr, bool isChess960, StateInfo* si, bool validate, bool* valid) {
     /*
    A FEN string defines a particular position using only the ASCII character set.
 
@@ -215,7 +216,13 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si, bo
     size_t             idx;
     std::istringstream ss(fenStr);
 
+    if (valid)
+        *valid = true;
+
     auto use_start_fen = [&](std::string_view reason) -> Position& {
+        if (valid)
+            *valid = false;
+
         sync_cout << "info string Invalid custom FEN: " << reason
                   << " Falling back to the standard start position." << sync_endl;
         return set(StartFEN, isChess960, si);
