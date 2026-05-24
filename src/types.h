@@ -328,7 +328,6 @@ struct DirtyThreat {
     uint32_t data;
 };
 
-
 // A piece can be involved in at most 8 outgoing attacks and 16 incoming attacks.
 // Moving a piece also can reveal at most 8 discovered attacks.
 // This implies that a non-castling move can change at most (8 + 16) * 3 + 8 = 80 features.
