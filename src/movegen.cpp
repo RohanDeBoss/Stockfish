@@ -127,17 +127,16 @@ splat_precomputed_moves(Move* moveList, Square from, Bitboard occupied, Bitboard
 
         const __m256i moves =
           *reinterpret_cast<const __m256i*>(SliderMoves[Pt - BISHOP][from].data());
-        _mm256_mask_storeu_epi16(
-          moveList, static_cast<__mmask16>((1U << popcount(mask)) - 1),
-          _mm256_maskz_compress_epi16(mask, moves));
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(moveList),
+                            _mm256_maskz_compress_epi16(mask, moves));
     }
     else
     {
         mask = pext(target, PseudoAttacks[Pt][from]);
 
         __m128i moves = *reinterpret_cast<const __m128i*>(KnightKingMoves[Pt == KING][from].data());
-        _mm_mask_storeu_epi16(moveList, static_cast<__mmask8>((1U << popcount(mask)) - 1),
-                              _mm_maskz_compress_epi16(mask, moves));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(moveList),
+                         _mm_maskz_compress_epi16(mask, moves));
     }
 
     return moveList + popcount(mask);
