@@ -196,6 +196,7 @@ class ValueList {
 
    public:
     std::size_t size() const { return size_; }
+    std::size_t capacity() const { return MaxSize; }
     int         ssize() const { return int(size_); }
     void        push_back(const T& value) {
         assert(size_ < MaxSize);
