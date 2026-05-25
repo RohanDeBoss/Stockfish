@@ -375,6 +375,14 @@ Position& Position::set(
     // 5-6. Halfmove clock and fullmove number
     ss >> std::skipws >> st->rule50 >> gamePly;
 
+    // Normally values larger than 99 would be pointless but we do support ignoring 50 move rule for TB purposes.
+    // Limit at 2**15 as it's used multiplicativly with position evaluation during search.
+    if (st->rule50 < 0 || st->rule50 > 32767)
+        return use_start_fen("Rule50 counter out of range.");
+
+    if (gamePly < 0 || gamePly > 100000)
+        return use_start_fen("Fullmove number out of range.");
+
     // Convert from fullmove starting from 1 to gamePly starting from 0,
     // handle also common incorrect FEN with fullmove = 0.
     gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
