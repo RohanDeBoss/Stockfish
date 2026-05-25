@@ -328,14 +328,10 @@ struct DirtyThreat {
     uint32_t data;
 };
 
-// A piece can be involved in at most 8 outgoing attacks and 16 incoming attacks.
-// Moving a piece also can reveal at most 8 discovered attacks.
-// This implies that a non-castling move can change at most (8 + 16) * 3 + 8 = 80 features.
-// By similar logic, a castling move can change at most (5 + 1 + 3 + 9) * 2 = 36 features.
-// Thus, 80 should work as an upper bound. Finally, 16 entries are added to accommodate
-// unmasked vector stores near the end of the list.
-
-using DirtyThreatList = ValueList<DirtyThreat, 96>;
+// Normal positions fit comfortably in 96 entries, but dense custom FENs can touch
+// many more threat features in one move. Keep extra room to preserve incremental
+// NNUE updates instead of falling back to full threat refreshes.
+using DirtyThreatList = ValueList<DirtyThreat, 256>;
 
 struct DirtyThreats {
     DirtyThreatList list;
